@@ -5,6 +5,8 @@ import { useTodoStore } from '@/stores/todo.store'
 
 const todoStore = useTodoStore()
 const title = ref('')
+// CHALLENGE 1: Filtering - Track active filter
+const filter = ref<'all' | 'active' | 'done'>('all')
 let stopRealtime: null | (() => void) = null
 
 onMounted(async () => {
@@ -18,6 +20,18 @@ onBeforeUnmount(() => stopRealtime?.())
 function onAdd() {
   todoStore.addTodo(title.value)
   title.value = ''
+}
+
+// CHALLENGE 1: Filtering - Get filtered todos based on selected filter
+function getFilteredTodos() {
+  switch (filter.value) {
+    case 'active':
+      return todoStore.activeTodos
+    case 'done':
+      return todoStore.doneTodos
+    default:
+      return todoStore.todos
+  }
 }
 </script>
 
@@ -42,14 +56,46 @@ function onAdd() {
         {{ todoStore.error }}
       </div>
 
+      <!-- CHALLENGE 1: Filtering - Filter Tabs -->
+      <div class="filter-tabs">
+        <button 
+          :class="{ active: filter === 'all' }" 
+          @click="filter = 'all'"
+          class="tab-btn"
+        >
+          All ({{ todoStore.todos.length }})
+        </button>
+        <button 
+          :class="{ active: filter === 'active' }" 
+          @click="filter = 'active'"
+          class="tab-btn"
+        >
+          Active ({{ todoStore.activeTodos.length }})
+        </button>
+        <button 
+          :class="{ active: filter === 'done' }" 
+          @click="filter = 'done'"
+          class="tab-btn"
+        >
+          Done ({{ todoStore.doneTodos.length }})
+        </button>
+      </div>
+
       <!-- Todos List -->
-      <div v-if="!todoStore.loading && todoStore.todos.length > 0" class="todos-list">
+      <div v-if="!todoStore.loading && getFilteredTodos().length > 0" class="todos-list">
         <div
-          v-for="todo in todoStore.todos"
+          v-for="todo in getFilteredTodos()"
           :key="todo.id"
           class="todo-item"
           :class="{ done: todo.is_done }"
         >
+          <!-- CHALLENGE 2 & 3: Checkbox for toggling with optimistic UI and cache updates -->
+          <input
+            type="checkbox"
+            :checked="todo.is_done"
+            @change="() => todoStore.toggleTodo(todo)"
+            class="todo-checkbox"
+          />
           <span class="todo-title">{{ todo.title }}</span>
           <button class="delete-btn" @click="todoStore.deleteTodo(todo.id)">
             <Trash2 :size="18" />
@@ -58,13 +104,21 @@ function onAdd() {
       </div>
 
       <!-- Empty State -->
-      <div v-if="!todoStore.loading && todoStore.todos.length === 0" class="empty">
-        No todos yet. Add one to get started!
+      <div v-if="!todoStore.loading && getFilteredTodos().length === 0" class="empty">
+        <template v-if="filter === 'done'">
+          No completed tasks yet!
+        </template>
+        <template v-else-if="filter === 'active'">
+          No active tasks! Great job 🎉
+        </template>
+        <template v-else>
+          No todos yet. Add one to get started!
+        </template>
       </div>
 
       <!-- Footer with pending count and clear button -->
       <div v-if="todoStore.todos.length > 0" class="footer">
-        <span class="pending-text">You have {{ todoStore.todos.length }} pending tasks</span>
+        <span class="pending-text">{{ todoStore.activeTodos.length }} of {{ todoStore.todos.length }} remaining</span>
         <button class="clear-all-btn" @click="todoStore.clearAll">Clear All</button>
       </div>
     </div>
@@ -133,14 +187,47 @@ h1 {
   background: #6d28d9;
 }
 
+/* CHALLENGE 1: Filter tabs styling */
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  background: #f5f5f5;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
+.tab-btn.active {
+  background: #7c3aed;
+  color: white;
+}
+
 .todos-list {
   margin-bottom: 1.5rem;
 }
 
 .todo-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 1rem;
   background: #f9f9f9;
   border-radius: 6px;
@@ -162,10 +249,20 @@ h1 {
   color: #999;
 }
 
+/* CHALLENGE 2: Checkbox styling */
+.todo-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #7c3aed;
+  flex-shrink: 0;
+}
+
 .todo-title {
   flex: 1;
   color: #333;
   font-size: 1rem;
+  word-break: break-word;
 }
 
 .delete-btn {
@@ -182,6 +279,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .delete-btn:hover {
@@ -232,78 +330,5 @@ h1 {
 
 .clear-all-btn:hover {
   background: #6d28d9;
-}
-
-.add-todo-form button:hover {
-  background-color: #369970;
-}
-
-.todos-list {
-  list-style: none;
-  padding: 0;
-}
-
-.todo-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
-  background-color: #f9f9f9;
-}
-
-.todo-item.done .todo-title {
-  text-decoration: line-through;
-  color: #999;
-}
-
-.todo-item input[type='checkbox'] {
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-}
-
-.todo-title {
-  flex: 1;
-  color: #333;
-}
-
-.delete-btn {
-  padding: 0.25rem 0.75rem;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.delete-btn:hover {
-  background-color: #c0392b;
-}
-
-.loading,
-.error,
-.empty {
-  text-align: center;
-  padding: 2rem;
-  font-size: 1.125rem;
-}
-
-.loading {
-  color: #666;
-}
-
-.error {
-  color: #e74c3c;
-  background-color: #fdeaea;
-  border-radius: 4px;
-  padding: 1rem;
-}
-
-.empty {
-  color: #999;
 }
 </style>

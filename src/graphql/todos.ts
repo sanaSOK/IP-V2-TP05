@@ -23,7 +23,7 @@ export const ADD_TODO = gql`
 `
 
 export const TOGGLE_TODO = gql`
-  mutation ToggleTodo($id: uuid!, $done: Boolean!) {
+  mutation ToggleTodo($id: Int!, $done: Boolean!) {
     update_todos_by_pk(pk_columns: { id: $id }, _set: { is_done: $done }) {
       id
       is_done
@@ -32,7 +32,7 @@ export const TOGGLE_TODO = gql`
 `
 
 export const DELETE_TODO = gql`
-  mutation DeleteTodo($id: uuid!) {
+  mutation DeleteTodo($id: Int!) {
     delete_todos_by_pk(id: $id) {
       id
     }
